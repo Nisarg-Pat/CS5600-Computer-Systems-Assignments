@@ -1,0 +1,122 @@
+			Homework 4
+	DEADLINE:
+		 Due:  Oct. 7
+
+======================================================
+For PART 1, you will be writing the entire shell,
+similarly to what I showed on the whiteboard.
+I'll add back that pseudo-code here, later.
+I will be revising PART 2 to make it shorter.
+And both  parts will be due on the same day.
+======================================================
+
+              [*** For submission instructions, see help.txt ***]
+
+In this homework, you will create a small shell.  As before,
+please create a Makefile with the targets:
+  build, check, and clean.
+For the 'check' target, it should simply start executing
+the shell.
+
+[help.txt contains more details about "make"]
+
+
+=========================================================================
+PART 1
+=========================================================================
+
+
+You must first write a simple shell.  The initial shell should
+simply read a command line, and execute it, within a loop.  You can
+assume that there will be exactly one space between each pair of
+words on the command line, in order to make parsing easy.
+
+You can base your code on the pseudo-code described in class,
+and reproduced here:
+
+LOOP:
+  print prompt
+  read command line
+  fork a child process  (using 'fork')
+  if child process, execute the command line (using 'execvp')
+  if parent process, wait for the child (using 'waitpid')
+  goto LOOP
+
+In a lower-level pseudo-code, this might look something like:
+
+  while (1) {
+    char *command[100];  // For commands with up to 100 words
+    printf("% \n");
+    // Read a string from command line:
+    /* fgets creates null-terminated string. stdin is pre-defined C constant
+     * for standard intput.  feof(stdin) tests for file:end-of-file.
+     */
+    char buffer[100];  // For commands with up to 100 characters
+    if (fgets(buffer, MAXLINE, stdin) == NULL && feof(stdin)) {
+      printf("Couldn't read from standard input. End of file? Exiting ...\n");
+      exit(1);  /* any non-zero value for exit means failure. */
+    }
+    // Fill in 'command' with pointers to words (char *), followed
+    //   by a NULL pointer.  'execvp' requires that the last pointer be NULL.
+    parse_command(buffer /* input */, command /* output */);
+    int childpid = fork();  // See 'man fork'
+    if (childpid == ) {  // if child
+      execvp(command[0], command);  // See 'man execvp'
+    } else {  // else parent
+      waitpid(childpid);  // See 'man waitpid'
+    }
+  }
+    
+
+
+=========================================================================
+PART 2
+=========================================================================
+
+Now that you have a working shell, add some simple features to it.
+[Make sure to save your current work before you move on to this part.]
+
+You will add four features:
+ * output redirection
+ * background jobs
+ * pipes
+ * handling of ^C (control-C) to kill the command, but not the shell process
+
+Add pipes and stdout redirection and background jobs to myshell.
+Also, support the user typing ^C (control-C) to interrupt a command.
+You only need to support one of the operators '>', '|', or '&'
+in a single command line.  Assume that we will also have a space between
+each operator (word) and a neighboring word.
+
+  % ls -l > FILES.txt
+    The output of "ls" command is written into "FILES.txt" instead of
+    standard-output.
+
+  % sleep 10 &
+    The "sleep 10" command runs in background, and the shell immediately
+    prints a new prompt and accepts a new command.
+
+  % ls | wc
+    This expression "pipes" the output of "ls" command to "wc" command. The
+    "wc" command then prints the number of lines, words and characters. This is
+    a quick way to find out the total number of files in the current directory.
+
+  % sleep 60
+  % ^C  (User interrupts a command)
+
+Under Linux, "man pipe" provides description and an example for the pipe
+command. Source code in pipe-example.c provides an example of how to setup a
+pipe for "ls | wc" example in UNIX.
+
+In order to support interrupts, you will want to register a signal
+handler for SIGINT in your shell.  Your signal handler should then
+kill the child process (given by 'childpid').
+
+If you don't add a signal handler, then when the user types ^C, this
+will cause the operating system to send a SIGINT signal to your shell
+process.  If your shell process doesn't have a signal handler, then it
+will be killed.
+
+As you look over the examples, be sure to often check the UNIX man pages:
+    man open, man close, man pipe, man dup, man dup2, man perror, man kill,
+    etc.

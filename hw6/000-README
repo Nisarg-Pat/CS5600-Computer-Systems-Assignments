@@ -1,0 +1,177 @@
+		      DUE: Friday, Dec. 2
+
+This assignment requires the use of POSIX system calls and the C
+programming language.  Your Khoury account allows you to do all of this
+assignment (and it provides the productivity tools, GDB, Makefile,
+and VI/EMACS).  You may also develop the code on a different computer.
+Your code should work on any Linux computer.
+
+The ostep.org book (and the Linux 'man' pages) are excellent resources
+to review the main concepts.  For ostep.org, see:
+  Chapters 27 (pthread_create/pthread_join); Chapter 29 (mutexes);
+  Chapter 30 (condition variables); and Chapter 31 (semaphores).
+
+A Makefile is provided for you in this directory.  It allows you to do
+things like:
+  make run
+  make vi
+  make emacs
+  make gdb
+
+For the API to call the various POSIX threads functions, please use:
+  man 3 NAME
+(For example, see 'man 3 pthread_create', for pthread_create.)
+
+Some important POSIX thread functions that you will want to be familiar
+with are:
+  pthread_create    [ Creates a new thread ]
+  pthread_mutex_init
+  pthread_mutex_lock
+  pthread_mutex_unlock
+
+Note that most pthread system calls require the header in the C source code:
+#include <pthread.h>
+
+Furthermore, when compiling them, you will typically have to explicitly
+invoke the pthread library.  A typical compiler command is:
+           gcc -g3 -O0 -o myprog myprog.c -lpthread
+[ Here, I include "-g3 -O0" to make it easy to run your program with GDB:
+    gdb myprog
+  Also, you can use either '-lpthread' or '-pthread'.  They do the same thing.
+]
+
+[ Do not worry about pthread_mutex_destroy.  Most programs create only a
+  small number of mutexes.  They don't bother to explicitly destroy
+  them, since they will be destroyed on process exit. ]
+
+This assignment has three parts.
+
+====
+PART I:  Write semaphore.c
+
+    Implement the functions:
+  sem_init
+  sem_post
+  sem_wait
+in your own semaphore.c file.  Your initial semaphore.c file only
+needs to be good enough for two threads.  A file, partial-solution.c
+is there to help you create your own semaphore.c file.
+[ In PART III, you will improve your implementation. ]
+
+The semaphore functions should have the same signature as found in
+'man 3 sem_init', 'man 3 sem_post', 'man 3 sem_wait'.  (These three functions
+are already defined in the pthread library.  When you compile this, you will
+be writing your own definition of these functions.  Any definition in your
+program automatically supersedes any definition in a library (e.g., pthread
+library).
+
+====
+PART II:  Write producer-consumer.c
+
+  You will next test your definitions of sem_init, sem_post, sem_wait
+on your own program, producer-consumer.c.
+You can begin with the file producer-consumer.c that is supplied here.
+But you will have to fill in the missing pieces of producer-consumer.c.
+
+Finally, you will then link them together into an executable:
+  gcc -g3 -O0 -o producer-consumer producer-consumer.c semaphore.c -pthread
+[ Or you could first create producer-consumer.o and semaphore.o,
+  and then link them together as above with 'gcc' ]
+
+Your program, producer-consumer.c, should create two threads:  a producer
+thread and a consumer thread.  You will also create a buffer with
+four slots.
+  int buffer[4];
+Each thread will wait a random amount of time, by invoking:
+  sleep(rand() % 5);
+(See 'man 3 rand' for the definition of the rand system call.)
+
+REMARK:
+  Later, in PART III, you will run with more than one producer and consumer.
+  The use of "sleep(rand() % 5)" in producer-consumer.c should expose
+  a bug/race condition, when you link it with your semaphore.c based
+  on partial-solution.c.
+  Another alternative to seeing the bug/race condition is to use:
+    usleep(rand() % 1000);
+    // usleep means "mu"/micro-sleep; usleep(1) sleeps for 1 microsecond.
+
+PRODUCER THREAD:
+After waiting this random amount of time, the producer thread
+will then write an integer into the next available slot in the buffer.
+The producer will then loop back and again call 'sleep' over a random
+period of time.  The first integer written will be '1'.  On each
+iteration, it will continue by writing '2', '3', etc.
+
+CONSUMER THREAD:
+After waiting a random amount of time, the consumer thread
+will then read an integer from the next available slot in the buffer.
+The consumer thread will then print the integer, and loop back and again
+call 'sleep' over a random period of time.
+
+If your program works, you should expect to see 1, 2, 3, ... being
+printed to your screen.
+
+====
+PART III:  Write an improved semaphore.c
+
+Extend the above code to work with three producer threads and three
+consumer threads.  The code based on partial-solution.c will now
+expose a bug, and it must be fixed.
+
+NOTE:
+The producer-consumer.c program based on partial-solution.c will
+expose a bug, now that you have three producers and three consumers.
+You can play around a little by testing if the bug appears
+on login.ccs.neu.edu (with many CPU cores), as opposed to your
+laptop (with only a few CPU cores).  You can also test by removing
+the 'sleep' statement in the function 'block()' in partial-solution.c,
+or replacing 'sleep' with 'usleep', as suggested above.
+
+(Normally, on "login.ccs.neu.edu", this scenario will expose the race condition
+(the bug).  Since the computer behind "login" can change each semester,
+please tell me if you are not seeing the bug.)
+
+If your program works, you should expect to see 1, 2, 3, ... being
+printed to your screen.  However, each integer will eventually be
+printed three times, since there are three producers, each of which
+is printing 1, 2, 3, ....  Naturally, the three copies of each integer
+may appear in a somewhat random order as part of the full sequence
+of integers.
+
+You have two options to fix the bug.
+1.  You can continue to fix partial-solution.c using the same approach, with
+    pthread_mutex_lock and pthread_mutex_unlock.
+2.  Alternatively, you can switch to a different approach, using
+    condition variables (pthread_cond_wait and pthread_cond_signal).
+
+========================================================================
+FORMAT FOR SUBMISSION:
+As before, you will use 'make dist' to create a .tar.gz file to submit.
+Your tar file must include a Makefile, producer-consumer.c,
+and semaphore.c.  You only need to submit the final semaphore.c
+(from PART III).  You do not need to submit semaphore.c from PART 1.
+
+    Since you now all know about Makefile, please be sure to include
+the targets 'build', 'check', and 'clean' in your targets.  The supplied
+Makefile is there, but incomplete, to help you get started.  The 'build'
+should compile all your source code.  The 'check' should run a test.
+A reasonable recipe for 'check' and 'build' might be as follows.
+(Remember the '<TAB>'.)
+
+check: build
+	./producer-consumer
+
+build: producer-consumer
+
+producer-consumer: producer-consumer.c semaphore.c
+	gcc -g3 -O0 producer-consumer.c semaphore.c -pthread
+
+And 'make clean' should use 'rm -f ...' to remove any files that were
+created by 'make build' or 'make check'.
+    Your code will be tested on Khoury:  ssh login.ccs.neu.edu
+Your code might be tested on Khoury login or on other Linux computers.
+Your code should work on any reasonable Linux distribution.
+
+    And please also include a 'README' file for the grader saying what works,
+and what doesn't work.  (Ideally, you'll just write that it all works. :-) )
+========================================================================

@@ -1,0 +1,310 @@
+                          Homework 4
+                          due Oct. 18
+
+In this homework, you will gain a broad knowledge of xv6, based
+on the original UNIX, Sixth Edition (also called Version 6 UNIX).
+This was the first version of UNIX to be widely released outside
+Bell Labs.  It was released in May, 1975, for the DEC PDP-11 minicommputer.
+Xv6 is made available by MIT:
+    http://pdos.csail.mit.edu/6.828/2014/xv6.html
+The contents there, xv6-rev6.pdf, nicely organizes the files according
+to purpose.
+
+Many of these pointers are reproduced on our local, hyper-referenced copy:
+    http://www.ccs.neu.edu/course/cs3650/unix-xv6/
+Be sure to also read the
+    "HELP on using the doxygen interface to browse the code"
+on that page, for tips to efficiently use the search, find the source code,
+see who calls a function, etc.
+
+One other pointer that will help you is that it often pays to
+read the (relatively short) .h file before reading the corresponding .c file.The .h file provides the data structures and the names of functions
+that manipulate them.
+
+Your job is to read the source code, and answer the following questions.
+For those questions of the form "Where is", you must indicate:
+ (a) the filename;
+ (b) the line number within that file; and
+ (c) the data structure or function name
+
+PROCESSES:
+
+1.  Where is the data structure for the process table?
+Ans:
+    Filename: proc.c
+    Line Number: 13
+    Data Structure: struct {} ptable
+
+2.  When there is a context switch from one process to another, where are
+    the values of the registers of the old process saved?
+    (This requires a reading knowledge of assembly.  We will review
+    in class the key points of assembly language.)
+Ans:
+    Filename: switch.S
+    Line Number: 14-17
+    Function name: swtch
+
+3.  What are the possible states of a process?  Also, give a brief phrase
+    describing the purpose of each state.
+Ans:
+    Possible states of a process (procstate):
+    UNUSED: It means that this process in process table is currently unused.
+    EMBRYO: It means that an unused process is found and a unique PID and
+            kernel stack is given to the process. If kernel stack allocation
+            fails, then process state changes back to UNUSED.
+    SLEEPING: The process is sleeping. Process is waiting for resources that
+              are currently not available. Doing so process is not
+              using any CPU time.
+    RUNNABLE: The process is ready to run, thus letting schedular choose it to run.
+    RUNNING: The process is currently running
+    ZOMBIE: The process is exited. It will remain in ZOMBIE state till parent calls
+            wait(), then changes back to UNSUSED.
+
+4.  What is the function that does a context switch between two
+    processes?
+    (This requires a reading knowledge of assembly.  We will review
+    in class the key points of assembly language.)
+Ans:
+    The function call is void swtch(struct context**, struct context*);
+    It is defined in swtch.s as an assembly language: .globl swtch
+
+5.  Explain how the context switch function works.
+Ans:
+    The context switch function is defined in swtch.S, lines 9-28, function name: swtch
+    1) It stores the addresses of parameters: struct context **old and struct
+       context *new into registers: %eax and %edx respectively.
+    2) The current context registers(context defined at proc.h, lines 44:50) are then
+       pushed to the stack except %eip, which is then moved to %eax, thus stored the
+       registers in "old".
+    3) The stack pointer is then changed to the "new" context and the context registers
+       are then restored by popping 4 values.
+
+6.  What function calls the context switch function, and explain in detail
+    what the calling function does.  (The doxygen hyper-linking
+    is not perfect here.  You may have to use 'grep' on
+       /course/cs3650/unix-xv6/* )
+Ans:
+    The swtch() function is called twice in proc.c. The functions that call it are:
+    1) void scheduler(void)
+       This is the actual scheduler, and it loops continuously, selecting a RUNNABLE
+       process, changes it to RUNNING and uses swtch() to change the context from
+       scheduler's to the process's thus allowing the process to run.
+    2) void sched(void)
+       This function changes the context back to the scheduler once the process has
+       finished running (and hence changed its state from RUNNING to either of
+       RUNNABLE, SLEEPING or ZOMBIE).
+
+PROCESS STARTUP:
+
+1.  Suppose a new program is going to start.  This requires a call to
+    the system call, exec().  On what lines does the operating system
+    create the first call frame, to be used by the user process's main()?
+Ans:
+    The operating system creates the first call frames used by user process's
+
+    main() using function exec(char *path, char **argv) in exec.c.
+    The line numbers where the stack frame is created is from lines 62 to 80, which
+    uses sp as the stack pointer and ustack as the user stack and prepares the user
+    stack using argument string and rest of the stack.
+
+
+2.  The first call frame must have the values of the
+    local variables argc and argv.  Where is the value of argv found
+    in the exec() call?
+Ans:
+    argv is the parameter for exec(char *path, char **argv).
+    These string arguments are pushed into user stack(ustack)
+    on lines 65 to 72 of exec.c.
+    ustack[2] = sp - (argc+1)*4 : stores the pointer to the argv.
+
+3.  On what lines does the function modify the process table entry
+    with the new program for the current process?
+Ans:
+    The process table entry is also modified in exec() function in exec.c.
+    The current process proc is modified from lines 90: 94.
+
+SYSTEM CALLS:
+
+In class, we discussed how a system call (e.g., open()) is really
+a function in the C runtime library, libc.so, and that function
+then calls 'syscall()' with the integer for the 'open' system call.
+This is similar to when you use 'syscall'' in the MARS assembler,
+and you put the system call number in register $v0 before the call.
+
+In these questions, we will follow the chain of control from
+a user program that calls 'open()' to the code in 'libc' to the
+syscall in the kernel, and finally to the function in the kernel
+that actually does the work of the 'open()' system call.
+
+1.  The file grep.c makes a call to 'open()'.  The definition of 'open()'
+    is inside 'usys.S'.  It makes use of the macro 'SYSCALL'.
+    Note that a macro, '$SYS_ ## name', will expand to the concatenation
+    of 'SYS_' and the value of the macro parameter, "name".
+    The assembly instruction 'int' is the interrupt instruction in
+    x86 assembly.  The 'int' assembly instruction takes as an argument
+    an integer, 'T_SYSCALL'.
+        The code in usys.S is complex because it uses the C preprocessor.
+    But, roughly, SYSCALL(open) will expand to the assembly code
+    in lines 4 though 9 of usys.S, where the (x86 assembly) instruction:
+      "movl $SYS_ ## name, %eax"
+    expands to:
+      "movl $SYS_open, %eax"
+    The value of SYS_open can be found in the include file, "syscall.h".
+
+    The instruction:
+      "int $T_SYSCALL"
+    uses information from "traps.h".  The "int" instruction is an
+    "interrupt" instruction.  It interrupts the kernel at the address
+    for interrupt number 64 (found in traps.).
+        If you do "grep SYS_open /course/cs3650/unix-xv6/*
+    it will lead you to:
+        /course/cs3650/unix-xv6/syscall.c
+    That will define the "syscalls" array, which is used by the
+    function "syscall".
+
+    Finally, here is the question:
+        Give the full details of how a call to 'open()' in grep.c will
+    call the function 'sys_open()' in sysfile.c, inside the operating
+    system kernel.
+Ans:
+    1) open() is called in line 56 inside grep.c.
+    2) open() is a global declaration on usys.S lines 5:9 with name = open,
+       which is called during line 20: SYSCALL(open) of usys.S.
+    3) Line 7 stores $SYS_open to %eax register.
+       Line 8 triggers the interrupt $T_SYSCALL with %eax set to $SYS_open.
+    4) This interrupt is trapped in trap.c lines 39:47 which catches the
+       T_SYSCALL which calls syscall() on line 43.
+    5) syscall() defined in syscall.c lines 126:139 reads the %eax register
+       on line 131, and then calls the corresponding function based on mappings
+       defined on lines 102: 124.
+    6) In our case, the mapping of SYS_open maps to sys_open (line 117).
+       Thus line 133 will call sys_open() defined in sysfile.c lines 284:331,
+
+       inside the operating system kernel.
+
+FILES AND FILE DESCRIPTORS:
+
+In class, we've talked about files and file descriptors.  We have
+not yet discussed i-nodes.  For these questions, you can think of
+an i-node as a location on disk that has the "table of contents"
+for all information about a file.
+
+In these questions, we will follow the chain of control from
+open() to a file descriptor, to a "struct file" (including the
+offset into the file), to the i-node.
+
+1.  The function 'sys_open()' returns a file descriptor 'fd'.
+    To do this, it opens a new 'struct file', 'filealloc()',
+    and it allocates a new file descriptor with 'fdalloc()'.
+    Where is the file descriptor allocated?  Also, you will see that
+    the file descriptor is one entry in an array.  What is the algorithm
+    used to choose which entry in the array to use for the new file descriptor?
+    [ Comment:  The name 'NOFILE' means "file number".  "No." is sometimes
+      used as an abbreviation for the word "number". ]
+Ans:
+   File descriptor is allocated in file sysfile.c, line 315, function: sys_open(),
+   by calling fd = fdalloc(f).
+   Function static int fdalloc(struct file *f) uses liner search on lines 43:48 to
+   search for first unused entry(index) in proc->ofile[] array, stores that file to
+   that index on the array and returns that index as the file descriptor.
+
+
+2.  As you saw above, the file descriptor turned out to be an index
+    in an array.  What is the name of the array for which the file
+    descriptor is an index?  Also, what is the type of one entry in
+    that array.
+Ans:
+    The aray is struct file *ofile[NOFILE] in struct proc.
+    And hence the type of one entry in that array is struct file*.
+
+3.  What is the name of the field that holds the offset into the file?
+    We saw it in the function 'sys_open()'.
+Ans:
+    It is field "uint off" inside struct file that holds the offset into the file.
+
+4.  Remember when we mentioned a call to 'filealloc()' above?
+    Since the return value of 'filealloc()' is only a 'struct file',
+    we need to initialize it.  Presumably, we will initialize it with
+    a file offset of 0.  What is the line number in 'sys_open()' where
+    we initialize the file offset to 0?
+Ans:
+    FileName: sysfile.c
+    Line Number: 327: f->off = 0;
+    Function name: sys_open()
+
+5.  The type of the 'struct file' was initialized to 'FD_INODE'.  What are the
+    other types that it could have been initialized to?
+Ans:
+    The fype of struct file can be one of the FD_NONE, FD_PIPE, FD_INODE.
+
+
+6.  By examining the function 'sys_dup()', you can discover how a
+    system call to 'dup()' will manipulate both a file descriptor
+    and a "struct file".  Describe what it does in each of the
+    two cases.
+Ans:
+    1) By calling fd=fdalloc(f) (line 60, sysfile.c):
+       It allocates a new file discriptor(first unused entry) to the file.i
+    2) By calling filedup(f), it manipulates the struct file by adding 1 to
+       the number of references of the file, since it is now being referenced
+
+       by one more file descriptor. f->ref++; (line 49, sysfile.c).
+
+=====
+For the next few questions, please read Chapter 39 of ostep.org:
+"Interlude:  Files and Directories" from ostep.org.  (It's very
+easy to read, as you'll see.)  Then continue with the remaining
+questions..
+
+7.  We have seen that an 'fd' acts as an index that leads to a pointer
+    to the 'struct file'.  Separately, a 'struct file' of type
+    'FD_INODE' leads to a 'struct inode'.  The 'struct inode' is stored
+    on disk, in the filesystem, but the operating system will make
+    a temporary copy in RAM.  Reach Chapter 40.3 in ostep.org:
+      File Organization:  The Inode
+    (You can skip "The Multi-Level Index".  But please do study
+     Figure 40.1: "Simplified Ext2 Inode").
+    Find the 'struct inode' in xv6, and then describe the xv6 fields:
+      inum, ref, nlink, size, and addrs[NDIRECT+1].
+Ans:
+    Filename: file.h
+    Line number: 13:25
+    Data structure: struct inode
+    Fields:
+    inum: The i-node number (low level name of the file)
+    ref: Number of references
+    nlink: Number of links to this inode in the file system
+    size: Size of the file in bytes
+    addrs[NDIRECT+1]: It is the array of disk(data block) addresses.
+
+8.  Describe in detail _how_ 'dirlink()' (in fs.c)
+    creates a new directory entry.  Here, you will benefit from
+    reaching Chapter 40.4 ("Directory Organization") in ostep.org.
+Ans:
+    1) dirlink() (lines 533:559) first checks whether the given name already
+       exists. If so, it returns with an error.
+    2) It then looks for a directory entry(dirent) for the directory(dp)
+       which is not allocated(hence having inum =0).
+    3) If found, "off" contains the offset for the entry, and "de" contains
+       the directory entry.
+    4) It then sets the name and inum in "de" based on the arguments
+       provided for dirlink().
+    5) The entry is written(stored) back in the directory(dp) with offset(off).
+
+
+9.  Suppose a 'struct file' had been initialized to FD_PIPE.  Find the
+    'struct' that holds the information about a pipe.  For each field
+    in that struct, Explain briefly (just a phrase) the purpose of that
+    field.
+Ans:
+    struct pipe holds the information about a pipe.
+    Filename: pipe.c
+    Line number: 12:19
+    Data structure: struct pipe.
+    Fields:
+    struct spinlock lock: lock for the struct pipe.
+    char data[PIPESIZE]: The data buffer to be read or written(size of 512 bytes).
+    uint nread: Stores the total bytes read till now.
+    uint nwrite: Stores the total bytes written till now.
+    int readopen: Whether the read is still open(1) or closed(0).
+    int writeopen: Whether the write is still open(1) or closed(0).

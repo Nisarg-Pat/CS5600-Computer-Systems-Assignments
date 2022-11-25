@@ -1,0 +1,171 @@
+                       HOMEWORK 3
+	           OBSOLETE: Deadline: Tuesday, Oct. 25
+	           Extended Deadline: Friday, Oct. 29
+
+This gives you practice in writing a _small_ assembly program.
+It will be sufficient to give you a reading knowledge of most
+common assembly languages today (possibly with a little googling).
+
+You must translate the program, 'program.c', in this directory into
+MIPS assembly language.  The MARS simulator for assembly language
+will be very helpful here.  The simulator is at:
+  http://courses.missouristate.edu/kenvollmar/mars/
+You can download the cross-platform simulator.  It runs on Java,
+on Windows, MacOS, and Linux.
+
+In your assembly program, you must include each line of the C source code as
+a comment just before the corresponding assembly code.
+For example:
+ # x = y + z;
+ add $t4, $t2, $t1
+ # x -= 2;
+ sub $t4, $t4, 2
+
+You must submit (using the on-line submit script) your assembly source.
+You must submit it as a .tar.gz file, using the usual submit script.
+Optionally, you may submit it directly as a .s file (assembly type
+in Linux) or .asm file (assembly type for Mars.
+
+======================================================================
+Please use the MARS simulator, and especially its singlestep/backstep
+feature.  This will make your debugging much easier.
+
+Note that MARS supports various print commands as system calls
+(using syscall) (see Figure A.9.1, p. A-44 in Appendix A, which is
+accessible from the course web page).  It also should call 'exit(0)'
+as a syscall at the end of 'main()'.
+
+======================================================================
+INITIALIZATION OF DATA STRUCTURES:
+
+Note also that for this C program, you will need to initialize the
+array of strings, ndigits.
+To do so, you will need to use the assembler directives on
+ pp. A-47 -- A-49 of Appendix A.
+The most useful directives for this are:  .space  and  .align
+For example:
+.data
+text:  .asciiz "This is a sample text.  The Khoury office is ..."
+       .align 2  # in our example, int's start at a 4-byte (2^2 byte) boundary.
+ndigits:  .space 40  # 10 digits, of 4 bytes each
+
+
+This .space directive will allocate space, but it will not
+initialize the space.  Later, you must write code inside main()
+that will initialize the space so that each word starting at 'ndigist'
+has an initial value of 0.
+
+
+======================================================================
+INSTRUCTIONS IN ASSEMBLY:
+  See Appendix A (Section A.10, pp. A-51 and following).
+    General comment:
+     * A word contains an:  address, or data, or instruction
+     * A label is used as:  global variable (in .data section); or
+                            function name (in .text section); or
+                            target of branch such as LOOP (in .text section).
+     * A MIPS assembly instruction usually follows the ordering of C:
+        sub $t3, $t2, $t1  # t3 = t2 - t1
+    Assembly terminology:
+     * 'address' means 'pointer' (EXAMPLE:  lw $sp, 4($sp) means: sp = *(sp +1))
+                                            OR:  sp[1] (is same as '*(sp+1)')
+     * 'immediate' means 'constant'  (EXAMPLE:  li $t0, 1 )
+     * 'word' means 32-bits or 4 bytes
+     * A MIPS register stores a 32-bit word.  So, this MIPS is a 32-bit CPU.
+     * Registers are separated by convention:
+       + local variables:  $t0-$t9, $s0-$s7
+       + arguments to a function:  $a0-$a3
+       + return address at end of a function call:  $ra
+       + return value at end of a function call:  $v0 [ or $v0-$v1 for double ]
+       + All registers:  page A-24 ("MIPS registers and usage convention")
+     * Example of function call:
+        li $a0, 1
+        jal foo  # call: foo(1) [jal jumps to foo, and saves $ra for return]
+        mov $t0, $v0  # Copy return value ($v0) to local register ($t0)
+        ...
+      foo:  # beginning of definition of foo
+        mov $t0, $a0  # Copy argument register ($a0) to local register ($t0)
+        ...  # Use only $t0-$t9, $s0-$s7
+        addi $v0, $t0, 1  # Return value, $v0, is 'argument + 1'
+        jr $ra  # return to the address $ra [jal jumps, and save $ra for return]
+
+
+======================================================================
+LOAD/STORE INSTRUCTIONS IN ASSEMBLY:
+
+Note these four variations of load/store:
+  sw $t1, 4($sp) # store $t1 into RAM
+  lw $t1, 4($sp) # load into $t1 from RAM
+  li $t1, 42     # load immediate data into $t1 (42 should be constant data)
+  la $t1, x      # load address into $t1 (x might be address of global var, x)
+                 # This does _not_ use RAM.  It computes an address for later.
+  move $t1, $t2  @ copy from register #t2 to register $t1  (t1 = t2;)
+
+Examples for the above:
+  lw   # copy from memory to register; lw $t1, 0($t2) ; lw $t1, data
+  sw   # copy from register to memory; sw $t1, -($t2);  sw $t1, data
+  move # copy between two registers (does not touch memory); move $t3, $t1
+  la   # compute an address and save it in register (does not touch memory)
+       # Example:  la $t5, size
+                   lw $t6 0($t5)
+  li   # copy a constant (data, not address) into a register.
+       # Example:  li $t6, 16
+
+
+
+======================================================================
+BRANCH INSTRUCTIONS IN ASSEMBLY:
+
+  beqz $t0, LOOP  # branch to LOOP label if $t0 is equal to zero
+  bgt $t1, $t0, LOOP  # branch to LOOP label if $t1 is greater than $t0
+  ...
+  EXAMPLE SOURCE:  for (i = 0; i < 10; i++) { ... }
+  ASSEMBLY:
+      li $t0, 0  # $t0 is i
+      li $t1, 10
+    LOOP:
+      ...
+      addi $t0, $t0, 1
+      blt $t0, $t1, LOOP
+
+
+======================================================================
+USING THE MARS SIMULATOR (debugging strategies):
+
+Let's assume that you run, and then you hit an error.  Let's assume there is
+a problem with register $t1 (out-of-bounds??).
+
+A. EXAMINE THE REGISTERS:
+    On the right in Mars, click on "Registers".  Look at the value
+    of $t1 (and any other registers that are related to it in your code).
+B.  EXECUTE BACKWARDS UNTIL THE "bad register" CHANGES:
+    MARS supports this special feature.  Most debuggers don't
+    Once you setp backwards to an instruction that modifies $t1,
+    examine if that instruction is doing the right thing.
+C.  SET A BREAKPOINT:
+    Look over your code to see all the places where $t1 was being modified.
+    At each such instruction, set a breakpoint.  ("Bkpt" boxes on the left).
+    Then start a new run, from the beginning.  It will stop at
+        the breakpoint during _the first time that $t1 is used in
+         relation to this bug_.
+D.  DEBUGGING AN INFINITE LOOP:
+    Maybe it doesn't crash.  But it runs forever.  This is an infinite loop,
+    and it is the easiest type of error to debug.
+    Let it execute into the loop.  Once you're sure it's in the loop,
+    stop it anywhere (using the pause "||" button of MARS).
+    Then single-step around the loop, and check the registers after each
+    instruction, to make sure it's doing the right thing.  Keep single-stepping
+    until you find the bad one.  If you missed the bad case, no problem!
+    Just take one more trip around the loop, and look for it again.
+E.  EXAMINE YOUR DATA STRUCTURES:
+    In MARS, examine the data segment.  Remember to use the check boxes
+    below the data segment to turn on and off:  "ASCII (characters)",
+    "hexadecimal (as opposed to decimal)", etc.  Get use to interpreting
+    the address for a value (read the address on the left, and add the
+    value at the top fo the column, for the address of a particular box).
+    Note also, that MIPS (like many CPUs) stores data and characters in
+    little-endian order.  This means that if you are looking for "Jennifer",
+    and you check the ASCIII box, then you will see "nneJ" followed by "refi".
+    Each word stored the characters backwards.  (If you've ever used
+    "pig latin" or "reverse speak" to confuse other people, then you'll
+    find "little-endian speak" to be very familiar.  :-) )

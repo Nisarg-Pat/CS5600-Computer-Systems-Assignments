@@ -1,0 +1,6 @@
+Need to look at using procSelfMaps twice.  Is it needed?  Does it produce the correct output the second time.
+
+Add information on debugging fldenv(%rcx).
+  Check memory segment of $rcx and see if memory segment exists and has
+the correct permissions.  Check (gdb) print/x context in restart and compare
+with (gdb) print/x context during launch.  Maybe ask to print it in readckpt???
