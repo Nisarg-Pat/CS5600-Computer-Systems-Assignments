@@ -1,0 +1,58 @@
+Part A: producer-consumer
+I was not able to get mcmini detect an error for both, the code provided
+in /producer-consumer and also for my hw6 when changing sem_ to mysem_. 
+Using mcmini -m 30, it kind of ran for a long time.
+
+Part B: parent-child-tasks
+
+  Bug: For some specific ordering of parent and child thread executions,
+       SEG_FAULT can occur while accessing buffer
+
+  Why: The global variables(specifically length) is initialized by child 
+       thread (line 19). For cases when parent starts executing, before 
+       child does, parent finds idx = -1, and tries to initialize buffer 
+       with length = -1 (line 46). As the buffer is not yet initialized, 
+       when child runs for the first time afterwards, it causes segmentation
+       fault since it tries to access buffer[0] (line 26), 
+       when idx is set to 0. 
+
+Part C: two-threads-and-mutex
+
+  Bug: Deadlock between the two worker threads.
+
+  Why: Consider the execution such that worker1 locks mutex2 (line 12). 
+       Befor it tries to lock mutex1, worker2 executes lock mutex1 (line 25)
+       Now at this point, worker1 has locked mutex2 and waits for mutex1, 
+       worker2 has locked mutex1 and waits for mutex2. Thus a deadlock 
+       occurred, since no thread is willing to give up any resources it held.
+       and waiting for resources held by some other thread.
+  Fix: A simple fix of this problem would be to make both threads lock and 
+       unlock mutexes in the same order. For example, lines 12-15 can be 
+       rearranged to:
+           pthread_mutex_lock(&mutex1);
+           pthread_mutex_lock(&mutex2);
+           pthread_mutex_unlock(&mutex2);
+           pthread_mutex_unlock(&mutex1);
+       This way, both threads try to access mutex1 first and mutex2
+       afterwards, removing the possible case of deadlock.
+
+Part D: reader-writer
+
+  Bug: Signal to a waiting reader, when there are waiting writers.
+       //For Writer Preferred. Similar for other preferences.
+  
+  Why: Suppose at any point in execution, there are 1 or more waiting readers       along with 1 or more waiting writers. An active reader or writer 
+       finishes it's task and sends a pthread_cond_signal(). Since 
+       pthread_cond_signal does not guarantee the recipient thread of the 
+       signal, it can send the signal to any of the waiting readers or 
+       writers. For Writer Preferred, if the signal is recieved by a reader
+       thread, it will find that one or more writers are still waiting and 
+       goes back to sleep. At this point no more cond_signal is executed 
+       and all the waiting threads are never woken. Thus the program is 
+       hanging(waiting).
+  
+  Fix: Since pthread_cond_signal does not guarantee the recipient of the 
+       signal, we have to wake up all the threads to see if any of them can 
+       proceed with their tasks based on the preference. To do this, we can 
+       change pthread_cond_signal(&cond) on lines 52 and 86 to 
+       pthread_cond_broadcast(&cond).

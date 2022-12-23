@@ -1,5 +1,3 @@
-// This is third part of the homework for multiple producer and consumers.
-
 // This is a partial implementation of producer-consumer.  Fill in the rest.
 
 // For debugging in GDB with threads: methodology 1
@@ -54,26 +52,21 @@ int main() {
  // WARNING:  the primary thread runs main().  When main exits, the primary
  //             thread exits, unless you call 'pthread_join()' to
  //             have 'main' wait on the other threads before exiting.
-  pthread_t producer_thread[3], consumer_thread[3];
+  pthread_t producer_thread, consumer_thread;
   producer_index = 0;
   consumer_index = 0;
   sem_init(&sem_producer, 0, BUFFER_SIZE);
   sem_init(&sem_consumer, 0, 0);
-  for(int i=0;i<3;i++) {
-    pthread_create(&producer_thread[i], NULL, producer, NULL);
-    pthread_create(&consumer_thread[i], NULL, consumer, NULL);
-  }
-  for(int i=0;i<3;i++) {
-    pthread_join(producer_thread[i], NULL);
-    pthread_join(consumer_thread[i], NULL);
-  }
+  pthread_create(&producer_thread, NULL, producer, NULL);
+  pthread_create(&consumer_thread, NULL, consumer, NULL);
+  pthread_join(producer_thread, NULL);
+  pthread_join(consumer_thread, NULL);
   while (1);  // Don't let the primary thread exit
 }
 
 void *producer(void *arg) {
   int work_item = 1;
   while (1) {
-    //sleep(1);
     sleep( rand() % 5 );
     sem_wait(&sem_producer);  // Wait for empty slots
     pthread_mutex_lock(&mut_buf);
@@ -102,14 +95,14 @@ void *consumer(void *arg) {
 void push_buf(int val) {
   buffer[producer_index] = val;
   //printf("Produced %d at %d\n", val, producer_index);
-  //fflush(stdout);
+  fflush(stdout);
   producer_index = (producer_index+1)%BUFFER_SIZE;
 }
 
 int take_from_buf() {
   int return_val = buffer[consumer_index];
   //printf("Consumed %d from %d\n", return_val, consumer_index);
-  //fflush(stdout);
+  fflush(stdout);
   consumer_index = (consumer_index+1)%BUFFER_SIZE;
   return return_val;
 }

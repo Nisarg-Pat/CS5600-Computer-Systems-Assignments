@@ -1,35 +1,17 @@
-FILE=producer-consumer
+all: parent-child-tasks two-threads-and-mutex reader-writer
 
-run: ${FILE}
-	./${FILE}
-
-all: ${FILE} temp temp2
-
-check: build
-	./${FILE}
-
-build: ${FILE}
 
 # We include -lpthread here, for a program that uses POSIX threads.
 # Newer versions of gcc allow you to simply invoke '-pthread' instead
 #   of '-lpthread'
-${FILE}: ${FILE}.c
-	gcc -g3 -O0 -o ${FILE} semaphore.c ${FILE}.c -pthread
+parent-child-tasks: parent-child-tasks.c
+	gcc -g3 -O0 -o parent-child-tasks parent-child-tasks.c -pthread
 
-temp: producer-consumer-temp.c
-	gcc -g3 -O0 -o producer-consumer-temp semaphore-temp.c producer-consumer-temp.c -pthread
+two-threads-and-mutex: two-threads-and-mutex.c
+	gcc -g3 -O0 -o two-threads-and-mutex two-threads-and-mutex.c -pthread
 
-temp2: producer-consumer-temp2.c
-	gcc -g3 -O0 -o producer-consumer-temp2 semaphore-temp.c producer-consumer-temp2.c -pthread
-
-gdb: ${FILE}
-	gdb ${FILE}
-
-vi: ${FILE}.c
-	vi ${FILE}.c
-
-emacs: ${FILE}.c
-	emacs ${FILE}.c
+reader-writer: reader-writer.c
+	gcc -g3 -O0 -o reader-writer reader-writer.c -pthread
 
 clean:
 	rm -f ${FILE} a.out *~

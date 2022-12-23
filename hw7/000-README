@@ -1,0 +1,152 @@
+		      DUE: Friday, Dec. 9
+
+This assignment is to find bugs and write a brief English paragraph describing
+the bugs in the program and sometimes how to fix them.  You only need
+to submit a single text file with your answers for parts A, B, C, and D.
+
+A.  For the first program, it will be easiest for you to simply use
+    the code found in the 'producer-conumer' subdirectory found here.
+    Within that subdirectory, you can 'make'.
+    You will find that you can then execute:
+      mcmini -m 30 ./producer-consumer
+    to discover an 'assertion' violation.
+    What is the cause of this bug?
+
+    [ McMini is still in an alpha release.  Hopefully, McMini will be
+      able to show this assertion violation with less than '-m 30'
+      in the future.  Nevertheless, you can use the strategy at the
+      end of this file, to choose a traceId and a number of transitions,
+      so that GDB will reach the situation of the bug. ]
+
+    [ Due to the difficulty of this problem, we will not be deducting
+      points if you are unable to solve this problem. ]
+
+B.  Compile parent-child-tasks.c and test it.
+    To compile:
+      gcc -g3 -O0 -o parent-child-tasks parent-child-tasks.c -pthread
+    If you test it with McMini, remember to use '-m 7 -first' (or some other
+    reasonable max-depth parameter).
+    What is the bug, and why?
+    [ NOTE:  If you use McMini, it will respond:
+             "Trace 0 stopped early!"
+             This means that it stopped due to SEGFAULT, exit with failure,
+               possibly an assert failure, or else something similar.
+               (And a bug in McMini may cause it to select "stopped early"
+                even for a _successful_ exit.)
+             Future McMini's will be more precise. ]
+
+C.  Compile two-threads-and-mutex.c and test it.
+    To compile:
+      gcc -g3 -O0 -o two-threads-and-mutex \
+      two-threads-and-mutex.c -pthread
+    If you test it with McMini, remember to use '-m 7 -first' (or some other
+    reasonable max-depth parameter).
+    What is the bug, and why?
+    What is a simple fix for this bug, by just re-ordering certain lines?
+
+D.  Compile reader-writer.c and test it.
+    To compile:
+      gcc -g3 -O0 -o reader-writer reader-writer.c -pthread
+    Unfortunately, a bug in McMini prevents it from showing the problem.
+      So, you'll have to find the bug the old way, or with ordinary GDB.
+    Here is a quick way to view the bug inside GDB:
+      # Try ./reader-writer several times on Khoury login if needed,
+      #   until you can see it "hang" and not exit.
+      ./reader-writer &
+      # Now that you can see it hanging (waiting), continue as follows:
+      gdb attach `pgrep --newest reader-writer`
+      (gdb) thread apply all where -4
+    [ NOTE:  In 'main', I have changed 'num_readers' and 'num_writers'
+             to be 3 and 3, respectively.  If McMini were working,
+             you would already discover a bug simply with
+             'num_readers' and 'num_writers' set to 1 and 2, respectively.
+             McMini (or GDB, without McMini, if you get the bad schedule)
+             would show you that reader 1 and writer 1 were unable
+             to escape from the 'while' loop for 'pthread_cond_wait',
+             even though writer 3 had done 'pthread_cond_signal' and
+             then exited. ]
+    What is the bug, and why?
+    How can you fix the bug by changing a single line in two places?
+
+================================
+THE McMini MODEL CHECKER IS PROVIDED TO HELP YOU.
+
+An alpha release of McMini (mcmini-alpha.tar.gz) is provided to help
+you diagnose the bugs.  Like all alpha releases, beware of bugs.  To use it:
+  tar zxvf mcmini-alpha.tar.gz
+  cd mcmini-alpha
+  ./configure && make
+
+TERMINOLOGY:
+  TRACE:
+    A _trace_ is a sequential schedule for the threads.  McMini will
+    explore all traces or schedules up to a certain depth.
+  TRANSITION:
+    A _transition_ is a thread operation.  McMini can continue to execute
+    a single thread, _until_ there is a thread operation.  At the thread
+    operation, McMini should consider continuing the current thread
+    or scheduling a different thread.
+    NOTE:  The non-thread statements before a thread operation cannot affect
+      the behavior of other threads.  So, we don't need to consider scheduling
+      a different thread at a non-thread statement.
+      (Here, we assume that if there is a shared global variable, then
+      it is protected by the thread operations pthread_mutex_lock and
+      pthread_mutex_unlock.  The mutex lock/unlock will force McMini
+      to consider other schedules.)
+
+For a demo, try:
+  make check-gdb
+  (gdb) mcmini help
+
+This demo will use a producer-consumer application based on the standard
+semaphore library provided by glibc in Linux..
+    This provides extended commands to goto a specific execution sequence
+(trace), and to examine each step involving a thread operation (each transition).
+
+To try it with your own application, do:
+  ./mcmini-gdb APPLICATION APPLICATUON_ARGS
+  (gdb) mcmini help
+
+When using 'mcmini-gdb', you should be aware of some important flags:
+  --max-depth <NUM>  [limit the depth or number of transitions explored for
+                       each trace;  Try setting --max-depth to a small
+                       number initially, and then raising it.]
+
+Two other option that you may find useful are --verbose and -first.
+
+Note, if you use 'mcmini back', then the thread numbers will be renumbered,
+but the threads will be in the same order.
+
+If you apply 'mcmini-gdb' on your hw6 solution, you will find it necessary
+to first change partial-solution.c and producer-consumer.c, both, to
+change all occurrences of 'sem_' to 'mysem_'.  This is needed so that
+the model checker will realize that it should model-check based on the
+underlying pthread_mutex_lock/unlock functions, and not on sem_wait/post.
+
+Also, if you apply 'mcmini-gdb' to your hw6 solution consider easing
+the burden of work for McMini.  For example, consider creating just
+one consumer thread, and either 2 or 3 producer threads.  McMini can
+then reach any bug much sooner.
+
+And McMini continues to support:
+  info threads, where, finish, next, step, continue
+
+This version of McMini specially calls 'alarm(7200)' to cause it
+to exit affter two hours.  This prevents runaway processes on Khoury login.
+
+STRATEGY 1:
+  It is important to use a '<NUM>' in the middle (not too small, not too large).
+  If it is too small, then the trace will not execute enough transitions
+    to reach the bug.
+  If it is too large, then McMini will spend a long time exploring many
+    traces that begin with the same sequence of operations, and may never
+    reach a later sequence of operations that contains the actual bug.
+
+STRATEGY 2:
+  mcmini -m <NUM> ./a.out  # find bad traceId (See STRATEGY 1 for choosing NUM)
+  mcmini-gdb -m <NUM>; (gdb) mcmini gotoTrace NUM+1; (gdb) mcmini forward <NUM2>
+    [ and repeat 'mcmini forward <NUM2>' by binary search to stop just before
+       any segfault. Then use that <NUM2> ]
+    AND:  (gdb) mcmini gotoTrace NUM+1; (gdb) mcmini forward <NUM2>
+          (gdb) finish, next, step, thread #, etc.
+  'mcmini gotoTrace <NUM>

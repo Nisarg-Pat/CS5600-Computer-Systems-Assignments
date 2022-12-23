@@ -43,7 +43,7 @@ void* consumer(void* arg);
 void push_buf(int val);
 int take_from_buf();
 
-#define BUFFER_SIZE 5
+#define BUFFER_SIZE 2
 int buffer[BUFFER_SIZE];
 int producer_index;
 int consumer_index;
@@ -73,8 +73,8 @@ int main() {
 void *producer(void *arg) {
   int work_item = 1;
   while (1) {
-    //sleep(1);
-    sleep( rand() % 5 );
+    sleep(1);
+    //sleep( rand() % 5 );
     sem_wait(&sem_producer);  // Wait for empty slots
     pthread_mutex_lock(&mut_buf);
       push_buf(work_item++);  // inside critical section with mut_buf lock
@@ -87,7 +87,7 @@ void *producer(void *arg) {
 void *consumer(void *arg) {
   while (1) {
     int work_item;
-    sleep( rand() % 5 );
+    //sleep( rand() % 5 );
     sem_wait(&sem_consumer);
     pthread_mutex_lock(&mut_buf);
       work_item = take_from_buf();
